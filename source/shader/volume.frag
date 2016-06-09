@@ -94,6 +94,8 @@ void main()
 #endif 
     
 #if TASK == 11
+    vec4 sum_val = vec4(0.0, 0.0, 0.0, 0.0);
+    int counter  = 0;
     // the traversal loop,
     // termination when the sampling position is outside volume boundarys
     // another termination condition for early ray termination is added
@@ -101,16 +103,23 @@ void main()
     {      
         // get sample
         float s = get_sample_data(sampling_pos);
+        vec4 val = texture(transfer_texture, vec2(s, s));
 
-        // dummy code
-        dst = vec4(sampling_pos, 1.0);
+        // average intensity projection
+        sum_val.r += val.r; 
+        sum_val.g += val.g;
+        sum_val.b += val.b;
+        sum_val.a += val.a;
         
         // increment the ray sampling position
         sampling_pos  += ray_increment;
 
+        counter += 1;
+
         // update the loop termination condition
         inside_volume  = inside_volume_bounds(sampling_pos);
     }
+    dst = sum_val/counter;
 #endif
     
 #if TASK == 12 || TASK == 13
