@@ -47,6 +47,17 @@ get_sample_data(vec3 in_sampling_pos)
 
 }
 
+vec3
+get_gradient(vec3 sampling_pos){
+    float offset = 0.005;
+    vec3 gradient;
+    gradient.x = get_sample_data(vec3(sampling_pos.x+offset, sampling_pos.y, sampling_pos.z))-get_sample_data(vec3(sampling_pos.x-offset, sampling_pos.y, sampling_pos.z));
+    gradient.y = get_sample_data(vec3(sampling_pos.x, sampling_pos.y+offset, sampling_pos.z))-get_sample_data(vec3(sampling_pos.x, sampling_pos.y-offset, sampling_pos.z));
+    gradient.z = get_sample_data(vec3(sampling_pos.x, sampling_pos.y, sampling_pos.z+offset))-get_sample_data(vec3(sampling_pos.x, sampling_pos.y, sampling_pos.z-offset));
+    return gradient;
+
+}
+
 void main()
 {
     /// One step trough the volume
@@ -94,8 +105,8 @@ void main()
 #endif 
     
 #if TASK == 11
-    vec4 sum_val = vec4(0.0, 0.0, 0.0, 0.0);
-    int counter  = 0;
+    vec4 summed_val = vec4(0.0, 0.0, 0.0, 0.0);
+    int increase_count  = 0;
     // the traversal loop,
     // termination when the sampling position is outside volume boundarys
     // another termination condition for early ray termination is added
@@ -105,21 +116,22 @@ void main()
         float s = get_sample_data(sampling_pos);
         vec4 val = texture(transfer_texture, vec2(s, s));
 
-        // average intensity projection
-        sum_val.r += val.r; 
-        sum_val.g += val.g;
-        sum_val.b += val.b;
-        sum_val.a += val.a;
+        // summed value updating
+        summed_val.r += val.r; 
+        summed_val.g += val.g;
+        summed_val.b += val.b;
+        summed_val.a += val.a;
         
         // increment the ray sampling position
         sampling_pos  += ray_increment;
 
-        counter += 1;
+        //incrementing
+        increase_count += 1;
 
         // update the loop termination condition
         inside_volume  = inside_volume_bounds(sampling_pos);
     }
-    dst = sum_val/counter;
+    dst = summed_val/increase_count;
 #endif
     
 #if TASK == 12 || TASK == 13
@@ -131,25 +143,54 @@ void main()
         // get sample
         float s = get_sample_data(sampling_pos);
 
-        // dummy code
-        dst = vec4(light_diffuse_color, 1.0);
+        // first-hit inaccurate
+        if (s > iso_value)
+        {
+            vec4 color = texture(transfer_texture, vec2(s, s));
+            dst = color;
 
-        // increment the ray sampling position
-        sampling_pos += ray_increment;
+            vec3 mid_pos = sampling_pos;
+
 #if TASK == 13 // Binary Search
-        IMPLEMENT;
+        int spacing = 30;
+        int increase_count = 0;
+        vec3 pre_pos = sampling_pos-ray_increment;
+        float mid_val=0.0;
+
+        while(increase_count<spacing)
+        {
+            increase_count++;
+            mid_pos = (sampling_pos + pre_pos)/2;
+            mid_val = get_sample_data(mid_pos);
+
+            if (get_sample_data(mid_pos)>iso_value){
+                sampling_pos = mid_pos;
+            }
+            else if(get_sample_data(mid_pos)<iso_value){
+                pre_pos = mid_pos;
+            }
+        }
+        color = texture(transfer_texture, vec2(mid_val, mid_val));
+        dst = color;
 #endif
 #if ENABLE_LIGHTNING == 1 // Add Shading
-        IMPLEMENTLIGHT;
-#if ENABLE_SHADOWING == 1 // Add Shadows
-        IMPLEMENTSHADOW;
-#endif
+        //dummy
 #endif
 
-        // update the loop termination condition
+#if ENABLE_SHADOWING == 1 // Add Shadows
+        //dummy
+#endif 
+break;
+}
+
+// increment the ray sampling position
+        sampling_pos += ray_increment;
+
+// update the loop termination condition
         inside_volume = inside_volume_bounds(sampling_pos);
     }
-#endif 
+#endif
+
 
 #if TASK == 31
     // the traversal loop,
