@@ -57,6 +57,12 @@ get_gradient(vec3 sampling_pos){
     return gradient;
 
 }
+vec3
+get_normal(vec3 sampling_pos){
+    vec3 fdx = vec3(dFdx(sampling_pos.x), dFdx(sampling_pos.y), dFdx(sampling_pos.z));
+    vec3 fdy = vec3(dFdy(sampling_pos.x), dFdy(sampling_pos.y), dFdy(sampling_pos.z));
+    return cross(fdx, fdy);
+}
 
 void main()
 {
