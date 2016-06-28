@@ -77,7 +77,7 @@ get_shading_normal(vec3 sampling_pos){
     float factor;
 
     if(dot(normalize(Normal), normalize(Light)) > 0){
-        vec3 H = normalize(L + V);
+        vec3 H = normalize(Light + Vol);
         factor = pow(max(dot(normalize(Normal), H), 0), 64);
     }
     vec3 Ispec = light_specular_color * light_ref_coef * factor;
@@ -98,7 +98,7 @@ vec3 get_shading_gradient(vec3 sampling_pos){
     float factor;
 
     if(dot(normalize(Gradient), normalize(Light)) > 0){
-        vec3 H = normalize(L + V);
+        vec3 H = normalize(Light + Vol);
         factor = pow(max(dot(normalize(Gradient), H), 0), 64);
     }
     vec3 Ispec = light_specular_color * light_ref_coef * factor;
@@ -222,11 +222,16 @@ void main()
         dst = color;
 #endif
 #if ENABLE_LIGHTNING == 1 // Add Shading
-        //dummy
+        dst = vec4(get_shading_gradient(mid_pos) * color.rgb, 1.0);
 #endif
 
 #if ENABLE_SHADOWING == 1 // Add Shadows
-        //dummy
+        float visibility = 1.0;
+
+        if(texture(shadowMap, ShadowCoord.xy).z < ShadowCoord.z){
+            visibility = 0.5;
+        }
+        dst = vec4(dst.rgb * visibility, dst.a);
 #endif 
 break;
 }
