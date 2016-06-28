@@ -86,7 +86,24 @@ get_shading_normal(vec3 sampling_pos){
 }
 
 vec3 get_shading_gradient(vec3 sampling_pos){
-    //Code here
+    float s = get_sample_data(sampling_pos);
+
+    vec3 Light = light_position-sampling_pos;
+    vec3 Vol = camera_location-sampling_pos;
+    vec3 Gradient = get_gradient(sampling_pos);
+
+    vec3 Iambient = light_ambient_color * light_ref_coef;
+    vec3 Idiffuse = light_diffuse_color * light_ref_coef * max(dot(normalize(Gradient), normalize(Light)), 0.0);
+
+    float factor;
+
+    if(dot(normalize(Gradient), normalize(Light)) > 0){
+        vec3 H = normalize(L + V);
+        factor = pow(max(dot(normalize(Gradient), H), 0), 64);
+    }
+    vec3 Ispec = light_specular_color * light_ref_coef * factor;
+
+    return Iambient + Idiffuse + Ispec;
 }
 
 void main()
