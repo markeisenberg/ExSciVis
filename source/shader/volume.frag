@@ -13,6 +13,8 @@ layout(location = 0) out vec4 FragColor;
 
 uniform mat4 Modelview;
 
+uniform sampler2D shadowMap;
+
 uniform sampler3D volume_texture;
 uniform sampler2D transfer_texture;
 
@@ -115,6 +117,8 @@ void main()
 
     /// Init color of fragment
     vec4 dst = vec4(0.0, 0.0, 0.0, 0.0);
+
+    //ShadowCoord = DepthBiasMVP * vec4(vertexPosition_modelspace,1);
 
     /// check if we are inside volume
     bool inside_volume = inside_volume_bounds(sampling_pos);
@@ -226,12 +230,29 @@ void main()
 #endif
 
 #if ENABLE_SHADOWING == 1 // Add Shadows
-        float visibility = 1.0;
+    if (ENABLE_LIGHTNING == 1){
 
-        if(texture(shadowMap, ShadowCoord.xy).z < ShadowCoord.z){
-            visibility = 0.5;
+        vec3 sample_path_to_sun = normalize(sampling_pos - light_position) * sampling_distance;
+        //increment ray sample
+        sampling_pos += 2*sample_path_to_sun;
+
+        //check for similar/larger along vector
+        while(inside_volume) //all(lessThanEqual(sampling_pos, light_position))) //
+        {
+            //get sample
+            s = get_sample_data(sampling_pos);
+
+            if (s > iso_value){
+
+                dst *= 0.5;
+                break;
+            }
+            //increment ray
+            sampling_pos += sample_path_to_sun;
+
+            inside_volume = inside_volume_bounds(sampling_pos);
         }
-        dst = vec4(dst.rgb * visibility, dst.a);
+    }
 #endif 
 break;
 }
@@ -244,24 +265,89 @@ break;
     }
 #endif
 
-
+//
+//Front to back
 #if TASK == 31
+
+    float s = get_sample_data(sampling_pos);
+    vec4 color = vec4(0.0); 
+    float trans = 1.0;
+    vec3 intens = vec3(0.0);
+    float a = 0.0;
+    
     // the traversal loop,
     // termination when the sampling position is outside volume boundarys
     // another termination condition for early ray termination is added
-    while (inside_volume)
-    {
+    while (inside_volume && trans > 0.05)
+    {   
+        sampling_pos += ray_increment;
+        float ss = get_sample_data(sampling_pos);
+
+         vec4 color2 =  texture(transfer_texture, vec2(ss, ss));
+         float a2 =  color2.a;
+
         // get sample
 #if ENABLE_OPACITY_CORRECTION == 1 // Opacity Correction
-        IMPLEMENT;
+        a2 = 1 - pow((1-a2), (sampling_distance/sampling_distance_ref));            
+#endif
+        // increment the ray sampling position
+
+        vec3 intens2 = color2.rgb * a2;
+
+#if ENABLE_LIGHTNING == 1 // Add Shading
+        intens2 = get_shading_gradient(sampling_pos) * intens2;
+#endif
+
+
+        trans = trans * (1-a);   
+        intens = intens + trans * intens2;   
+        dst = vec4(intens, 1 - trans);
+
+        //updated value opacity
+        a = a2;
+
+        // update the loop termination condition
+        inside_volume = inside_volume_bounds(sampling_pos);
+    }
+#endif 
+    
+
+    // return the calculated color value
+    FragColor = dst;
+}
+//
+
+/*
+//Back to front
+#if TASK == 31.5
+
+    float trans = 1.0;
+    float a = 0.0;
+    vec4 color = vec4(0.0);
+    float s = get_sample_data(sampling_position);
+    vec4 intensity = vec3(0.0);
+    // the traversal loop,
+    // termination when the sampling position is outside volume boundarys
+    // another termination condition for early ray termination is added
+    while (inside_volume && trans > 0.05)
+    {   
+        float ss = get_sample_data(sampling_pos);
+         vec3 color2 =  texture(transfer_texture, vec2(ss, ss));
+         float a2 =  color2.a;
+
+        // get sample
+#if ENABLE_OPACITY_CORRECTION == 1 // Opacity Correction
+        a2 = 1 - pow((1-a2), (sampling_distance/sampling_distance_ref));            
 #else
         float s = get_sample_data(sampling_pos);
 #endif
-        // dummy code
+        trans = trans * (1-a);      
         dst = vec4(light_specular_color, 1.0);
 
         // increment the ray sampling position
         sampling_pos += ray_increment;
+
+        vec3 intensity_2 = color;
 
 #if ENABLE_LIGHTNING == 1 // Add Shading
         IMPLEMENT;
@@ -275,4 +361,4 @@ break;
     // return the calculated color value
     FragColor = dst;
 }
-
+*/
